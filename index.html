@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>mermaid-animate – Native-feeling Mermaid animations</title>
+    <link rel="stylesheet" href="./src/styles.css" />
+    <link rel="stylesheet" href="https://unpkg.com/prismjs/themes/prism.min.css" />
+  </head>
+  <body>
+    <header>
+      <div class="container">
+        <h1>mermaid-animate</h1>
+        <p>Mermaid animations that feel first-party. Flowcharts and sequence diagrams with native defaults.</p>
+        <div class="theme-toggle">
+          <button id="theme-light">Light</button>
+          <button id="theme-dark">Dark</button>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div class="container">
+      <section data-demo id="demo-flow-basic">
+        <h2>Flow: Edge Sequence</h2>
+        <div class="panel">
+          <div class="diagram"></div>
+          <div class="code">
+            <h3>Mermaid</h3>
+            <pre><code class="language-mermaid">graph LR
+A[Start] --> B{Branch}
+B -->|yes| C[Do a thing]
+B -->|no| D[Different path]
+C --> E[Finish]
+D --> E</code></pre>
+            <button class="to-playground" data-target="#demo-flow-basic">Load in Playground</button>
+            <h3>mermaid-animate</h3>
+            <pre><code class="language-html">&lt;!doctype html&gt;
+&lt;meta charset=&quot;utf-8&quot; /&gt;
+&lt;div id=&quot;app&quot;&gt;&lt;/div&gt;
+&lt;script type=&quot;module&quot;&gt;
+  import animate from 'mermaid-animate';
+  const el = document.getElementById('app');
+  const code = `
+  graph LR
+  A[Start] --> B{Branch}
+  B -->|yes| C[Do a thing]
+  B -->|no| D[Different path]
+  C --> E[Finish]
+  D --> E
+  `;
+  animate.initialize({ theme: 'light' });
+  await animate.flow.draw(el, code, { draw: { step: 1.0, gap: 0.25 }, loop: true });
+&lt;/script&gt;</code></pre>
+            <script type="text/mermaid">graph LR
+A[Start] --> B{Branch}
+B -->|yes| C[Do a thing]
+B -->|no| D[Different path]
+C --> E[Finish]
+D --> E</script>
+          </div>
+        </div>
+      </section>
+
+      <section data-demo id="demo-flow-interactive">
+        <h2>Flow: Click-to-Traverse (waves)</h2>
+        <p class="hint">Tip: Click any node to fan‑out traversal waves.</p>
+        <div class="panel">
+          <div class="diagram"></div>
+          <div class="code">
+            <h3>Mermaid</h3>
+            <pre><code class="language-mermaid">graph LR
+A[Request] --> B{Router}
+B -->|auth| C[Auth]
+B -->|cache| D[Cache]
+C --> E[Service]
+D --> E
+E --> F[DB]</code></pre>
+            <button class="to-playground" data-target="#demo-flow-interactive">Load in Playground</button>
+            <h3>mermaid-animate</h3>
+            <pre><code class="language-html">&lt;!doctype html&gt;
+&lt;meta charset=&quot;utf-8&quot; /&gt;
+&lt;style&gt; svg{max-width:900px} &lt;/style&gt;
+&lt;div id=&quot;app&quot;&gt;&lt;/div&gt;
+&lt;script type=&quot;module&quot;&gt;
+  import animate, { renderMermaid, ensurePath, animateStrokeDraw, listFlowEdgesFromSvgRaw } from 'mermaid-animate';
+  import gsap from 'gsap';
+  const el = document.getElementById('app');
+  const code = `
+  graph LR
+  A[Request] --> B{Router}
+  B -->|auth| C[Auth]
+  B -->|cache| D[Cache]
+  C --> E[Service]
+  D --> E
+  E --> F[DB]
+  `;
+  animate.initialize({ theme: 'light' });
+  const { svg } = await renderMermaid(el, code);
+  const raw = listFlowEdgesFromSvgRaw(svg).map(e =&gt; ({ ...e, path: ensurePath(e.path) }));
+  const out = new Map(); raw.forEach(e =&gt; { if (!out.has(e.from)) out.set(e.from, []); out.get(e.from).push(e); });
+  function waves(start){
+    const tl = gsap.timeline({ paused:true });
+    const seen=new Set([start]); let frontier=[start]; const step=0.8,gap=0.2;
+    while(frontier.length){
+      const next=[]; const layer=[];
+      for(const u of frontier){ for(const e of (out.get(u)||[])){ layer.push(e.path); if(!seen.has(e.to)){ seen.add(e.to); next.push(e.to);} }}
+      if(layer.length){ const pos = tl.duration(); layer.forEach(p =&gt; animateStrokeDraw(tl,p,{duration:step},pos)); tl.to({}, {duration:gap}); }
+      frontier = next;
+    }
+    return tl.play(0);
+  }
+  // bind clicks on nodes
+  svg.querySelectorAll('g.node').forEach(n =&gt; {
+    n.style.cursor='pointer';
+    n.addEventListener('click', () =&gt; waves(n.id.replace(/^flowchart-([^-]+)-.*/, '$1')));
+  });
+  // autoplay from first root and loop
+  const roots = (() =&gt; { const map=new Map(); raw.forEach(e=&gt;{map.set(e.to,true); if(!map.has(e.from)) map.set(e.from,false);}); return [...map].filter(([,v])=&gt;!v).map(([k])=&gt;k); })();
+  const start = roots[0] || raw[0]?.from; let tl = waves(start); tl.eventCallback('onComplete', () =&gt; setTimeout(() =&gt; { tl.kill(); tl = waves(start); }, 1000));
+&lt;/script&gt;</code></pre>
+            <script type="text/mermaid">graph LR
+A[Request] --> B{Router}
+B -->|auth| C[Auth]
+B -->|cache| D[Cache]
+C --> E[Service]
+D --> E
+E --> F[DB]</script>
+          </div>
+        </div>
+      </section>
+
+      <section data-demo id="demo-flow-advanced">
+        <h2>Flow: Advanced Fan-out (auto roots)</h2>
+        <div class="panel">
+          <div class="diagram"></div>
+          <div class="code">
+            <h3>Mermaid</h3>
+            <pre><code class="language-mermaid">graph LR
+A --> B
+A --> C
+B --> D
+C --> D
+D --> E
+D --> F</code></pre>
+            <button class="to-playground" data-target="#demo-flow-advanced">Load in Playground</button>
+            <h3>mermaid-animate</h3>
+            <pre><code class="language-html">&lt;!doctype html&gt;
+&lt;meta charset=&quot;utf-8&quot; /&gt;
+&lt;div id=&quot;app&quot;&gt;&lt;/div&gt;
+&lt;script type=&quot;module&quot;&gt;
+  import animate, { renderMermaid, ensurePath, animateStrokeDraw, listFlowEdgesFromSvgRaw } from 'mermaid-animate';
+  import gsap from 'gsap';
+  const el = document.getElementById('app');
+  const code = `
+  graph LR
+  A --> B
+  A --> C
+  B --> D
+  C --> D
+  D --> E
+  D --> F
+  `;
+  animate.initialize({ theme: 'light' });
+  const { svg } = await renderMermaid(el, code);
+  const edges = listFlowEdgesFromSvgRaw(svg).map(e =&gt; ({ ...e, path: ensurePath(e.path) }));
+  const roots = (() =&gt; { const m=new Map(); edges.forEach(e=&gt;{m.set(e.to,true); if(!m.has(e.from)) m.set(e.from,false);}); return [...m].filter(([,v])=&gt;!v).map(([k])=&gt;k); })();
+  const out = new Map(); edges.forEach(e =&gt; { if (!out.has(e.from)) out.set(e.from, []); out.get(e.from).push(e); });
+  const master = gsap.timeline({ paused:true, repeat:-1, repeatDelay:1 });
+  const step = 0.7, gap = 0.2;
+  roots.forEach(r =&gt; {
+    const child = gsap.timeline();
+    let frontier=[r]; const seen=new Set([r]);
+    while(frontier.length){ const next=[]; const wave=[]; for(const u of frontier){ for(const e of (out.get(u)||[])){ wave.push(e.path); if(!seen.has(e.to)){ seen.add(e.to); next.push(e.to);} }} const pos=child.duration(); wave.forEach(p=&gt;animateStrokeDraw(child,p,{duration:step},pos)); child.to({}, {duration:gap}); frontier=next; }
+    master.add(child, 0);
+  });
+  master.play(0);
+&lt;/script&gt;</code></pre>
+            <script type="text/mermaid">graph LR
+A --> B
+A --> C
+B --> D
+C --> D
+D --> E
+D --> F</script>
+          </div>
+        </div>
+      </section>
+
+      <section data-demo id="demo-flow-split">
+        <h2>Flow: Splitting Tracers (continuous)</h2>
+        <div class="panel">
+          <div class="diagram"></div>
+          <div class="code">
+            <h3>Mermaid</h3>
+            <pre><code class="language-mermaid">graph LR
+A --> B
+A --> C
+B --> D
+C --> E
+D --> F
+E --> F</code></pre>
+            <button class="to-playground" data-target="#demo-flow-split">Load in Playground</button>
+            <h3>mermaid-animate</h3>
+            <pre><code class="language-html">&lt;!doctype html&gt;
+&lt;meta charset=&quot;utf-8&quot; /&gt;
+&lt;div id=&quot;app&quot;&gt;&lt;/div&gt;
+&lt;script type=&quot;module&quot;&gt;
+  import animate, { renderMermaid, ensurePath, createTracerDot, listFlowEdgesFromSvgRaw } from 'mermaid-animate';
+  import { MotionPathPlugin } from 'gsap/all';
+  import gsap from 'gsap';
+  gsap.registerPlugin(MotionPathPlugin);
+  const el = document.getElementById('app');
+  const code = `
+  graph LR
+  A --> B
+  A --> C
+  B --> D
+  C --> E
+  D --> F
+  E --> F
+  `;
+  animate.initialize({ theme: 'light' });
+  const { svg } = await renderMermaid(el, code);
+  const edges = listFlowEdgesFromSvgRaw(svg).map(e =&gt; ({ ...e, path: ensurePath(e.path) }));
+  const out = new Map(); edges.forEach(e =&gt; { if (!out.has(e.from)) out.set(e.from, []); out.get(e.from).push(e); });
+  const roots = (() =&gt; { const m=new Map(); edges.forEach(e=&gt;{m.set(e.to,true); if(!m.has(e.from)) m.set(e.from,false);}); return [...m].filter(([,v])=&gt;!v).map(([k])=&gt;k); })();
+  const parent = svg.querySelector('g.root') || svg;
+  let token = 0; let timer = null;
+  function advance(dot, node, t){
+    const es = out.get(node) || [];
+    if (es.length === 0) { dot.remove(); return; }
+    const step = 0.8;
+    es.forEach((e,i) =&gt; {
+      const d = i === 0 ? dot : dot.cloneNode(true);
+      if (i &gt; 0) parent.appendChild(d);
+      try { gsap.killTweensOf(d); } catch {}
+      d.removeAttribute('transform'); d.removeAttribute('data-svg-origin'); gsap.set(d, { x:0, y:0, rotation:0 });
+      d.setAttribute('cx','0'); d.setAttribute('cy','0'); d.setAttribute('visibility','visible');
+      gsap.to(d, { duration: step, ease: 'power1.inOut', motionPath: { path: e.path, autoRotate:false }, overwrite:'auto', immediateRender:false,
+        onComplete: () =&gt; { if (t!==token) return; advance(d, e.to, t); } });
+    });
+  }
+  function run(){
+    token++; if (timer) { clearTimeout(timer); timer = null; }
+    svg.querySelectorAll('circle[data-follower="1"]').forEach(n =&gt; n.remove());
+    roots.forEach(r =&gt; advance(createTracerDot(svg, 4, '#e85d04', parent), r, token));
+    timer = setTimeout(() =&gt; { if (token===token) run(); }, 2000);
+  }
+  run();
+&lt;/script&gt;</code></pre>
+            <script type="text/mermaid">graph LR
+A --> B
+A --> C
+B --> D
+C --> E
+D --> F
+E --> F</script>
+          </div>
+        </div>
+      </section>
+
+      <section data-demo id="demo-flow-heatmap">
+        <h2>Flow: Heatmap (pulse)</h2>
+        <div class="panel">
+          <div class="diagram"></div>
+          <div class="code">
+            <h3>Mermaid</h3>
+            <pre><code class="language-mermaid">graph LR
+A --> B
+A --> C
+B --> D
+C --> D
+D --> E</code></pre>
+            <button class="to-playground" data-target="#demo-flow-heatmap">Load in Playground</button>
+            <h3>mermaid-animate</h3>
+            <pre><code class="language-html">&lt;!doctype html&gt;
+&lt;meta charset=&quot;utf-8&quot; /&gt;
+&lt;div id=&quot;app&quot;&gt;&lt;/div&gt;
+&lt;script type=&quot;module&quot;&gt;
+  import animate, { renderMermaid } from 'mermaid-animate';
+  import gsap from 'gsap';
+  const el = document.getElementById('app');
+  const code = `
+  graph LR
+  A --> B
+  A --> C
+  B --> D
+  C --> D
+  D --> E
+  `;
+  animate.initialize({ theme: 'light' });
+  const { svg } = await renderMermaid(el, code);
+  Array.from(svg.querySelectorAll('g.edgePaths path')).forEach((p,i) =&gt; {
+    const hue = (i*47)%360; p.style.stroke = `hsl(${hue},80%,50%)`;
+    gsap.to(p, { strokeWidth: 3, duration: 0.6, yoyo: true, repeat: -1, ease: 'sine.inOut' });
+  });
+&lt;/script&gt;</code></pre>
+            <script type="text/mermaid">graph LR
+A --> B
+A --> C
+B --> D
+C --> D
+D --> E</script>
+          </div>
+        </div>
+      </section>
+
+      <section data-demo id="demo-sequence">
+        <h2>Sequence: Tracer loop</h2>
+        <div class="actions"><button class="add-follower">Add another tracer!</button></div>
+        <div class="panel">
+          <div><div class="diagram"></div></div>
+          <div class="code">
+            <h3>Mermaid</h3>
+            <pre><code class="language-mermaid">sequenceDiagram
+participant A as Client
+participant B as API
+participant C as DB
+A->>B: Request
+B->>C: Query
+C-->>B: Rows
+B-->>A: Response</code></pre>
+            <button class="to-playground" data-target="#demo-sequence">Load in Playground</button>
+            <h3>mermaid-animate</h3>
+            <pre><code class="language-html">&lt;!doctype html&gt;
+&lt;meta charset=&quot;utf-8&quot; /&gt;
+&lt;div id=&quot;app&quot;&gt;&lt;/div&gt;
+&lt;button id=&quot;more&quot;&gt;Add another tracer!&lt;/button&gt;
+&lt;script type=&quot;module&quot;&gt;
+  import animate from 'mermaid-animate';
+  import { MotionPathPlugin } from 'gsap/all';
+  import gsap from 'gsap';
+  gsap.registerPlugin(MotionPathPlugin);
+  const el = document.getElementById('app');
+  const code = `
+  sequenceDiagram
+  participant A as Client
+  participant B as API
+  participant C as DB
+  A->>B: Request
+  B->>C: Query
+  C-->>B: Rows
+  B-->>A: Response
+  `;
+  animate.initialize({ theme: 'light' });
+  await animate.sequence.tracer(el, code, { tracer: { count: 1 } });
+  document.getElementById('more').addEventListener('click', async () =&gt; {
+    const svg = el.querySelector('svg'); if (!svg) return;
+    const sels = ['path[marker-end]','line[marker-end]','polyline[marker-end]','path[marker-start]','line[marker-start]','polyline[marker-start]'];
+    const paths = Array.from(svg.querySelectorAll(sels.join(','))).map(el =&gt; MotionPathPlugin.convertToPath(el, true)).map(r =&gt; Array.isArray(r)? r[0] : r);
+    const dot = svg.ownerDocument.createElementNS('http://www.w3.org/2000/svg','circle'); dot.setAttribute('r','4'); dot.setAttribute('fill','hotpink'); dot.setAttribute('data-follower','1'); dot.setAttribute('visibility','hidden');
+    (svg.querySelector('g.root')||svg).appendChild(dot);
+    const tl = gsap.timeline({ paused:true }); paths.forEach(p =&gt; tl.to(dot, { duration: 1.0, ease: 'power1.inOut', motionPath: { path: p, align: p, autoRotate: false }, onStart: () =&gt; dot.setAttribute('visibility','visible') })); tl.eventCallback('onComplete', () =&gt; tl.play(0)); tl.play(0);
+  });
+&lt;/script&gt;</code></pre>
+            <script type="text/mermaid">sequenceDiagram
+participant A as Client
+participant B as API
+participant C as DB
+A->>B: Request
+B->>C: Query
+C-->>B: Rows
+B-->>A: Response</script>
+          </div>
+        </div>
+      </section>
+
+      <section data-demo id="demo-state">
+        <h2>State: Step‑Through Tracer</h2>
+        <p class="hint">Tip: Click a state to choose the starting transition.</p>
+        <div class="panel">
+          <div class="diagram"></div>
+          <div class="code">
+            <h3>Mermaid</h3>
+            <pre><code class="language-mermaid">stateDiagram-v2
+[*] --> Idle
+Idle --> Working: Start
+Working --> Idle: Stop
+Working --> Error: Fail
+Error --> Idle: Reset</code></pre>
+            <button class="to-playground" data-target="#demo-state">Load in Playground</button>
+            <h3>mermaid-animate</h3>
+            <pre><code class="language-html">&lt;!doctype html&gt;
+&lt;meta charset=&quot;utf-8&quot; /&gt;
+&lt;div id=&quot;app&quot;&gt;&lt;/div&gt;
+&lt;script type=&quot;module&quot;&gt;
+  import animate, { renderMermaid, ensurePath, createTracerDot, parseTransitions } from 'mermaid-animate';
+  import gsap from 'gsap';
+  import { MotionPathPlugin } from 'gsap/all';
+  gsap.registerPlugin(MotionPathPlugin);
+  const el = document.getElementById('app');
+  const code = `
+  stateDiagram-v2
+  [*] --> Idle
+  Idle --> Working: Start
+  Working --> Idle: Stop
+  Working --> Error: Fail
+  Error --> Idle: Reset
+  `;
+  animate.initialize({ theme: 'light' });
+  const { svg } = await renderMermaid(el, code);
+  const transitions = parseTransitions(code);
+  const sels = ['path[marker-end]','line[marker-end]','polyline[marker-end]','path[marker-start]','line[marker-start]','polyline[marker-start]'];
+  const connectors = Array.from(svg.querySelectorAll(sels.join(','))).map(el =&gt; ensurePath(el));
+  let paths = connectors.slice();
+  if (paths.length === transitions.length + 1) paths = paths.slice(1);
+  else if (paths.length &gt; transitions.length) paths = paths.slice(0, transitions.length);
+  const nodes = Array.from(svg.querySelectorAll('g.node'));
+  const parent = svg.querySelector('g.root') || svg;
+  let token = 0; let current = null;
+  function rotate(arr, k){ const n = arr.length; if (!n) return arr.slice(); const i=((k%n)+n)%n; return arr.slice(i).concat(arr.slice(0,i)); }
+  function run(start){ token++; if (current){ try{ current.kill(); }catch{} current=null; } svg.querySelectorAll('circle[data-follower="1"]').forEach(n=&gt;n.remove()); const dot=createTracerDot(svg,4,getComputedStyle(svg).getPropertyValue('--ma-accent')||'#1b74e4', parent); const tl=gsap.timeline({paused:true}); current=tl; rotate(paths,start).forEach(p=&gt; tl.to(dot,{duration:0.9,ease:'power1.inOut',motionPath:{path:p,align:p,autoRotate:false}, onStart:()=&gt;dot.setAttribute('visibility','visible')})); tl.eventCallback('onComplete',() =&gt; setTimeout(() =&gt; run(start), 1000)); tl.play(0); }
+  run(0);
+  nodes.forEach(n =&gt; { n.style.cursor='pointer'; n.addEventListener('click', () =&gt; { const label=(n.textContent||'').trim(); const idx=transitions.findIndex(t=&gt;t.from===label); if (idx&gt;=0) run(idx); }); });
+&lt;/script&gt;</code></pre>
+            <p class="note">Mapping heuristic: we match transitions to visible connectors by order; if there’s one extra connector (usually [*] → first state), we skip the first.</p>
+            <script type="text/mermaid">stateDiagram-v2
+[*] --> Idle
+Idle --> Working: Start
+Working --> Idle: Stop
+Working --> Error: Fail
+Error --> Idle: Reset</script>
+          </div>
+        </div>
+      </section>
+
+      <section id="playground">
+        <h2>Playground</h2>
+        <div class="panel">
+          <div>
+            <textarea data-playground rows="12" cols="70">graph LR
+A --> B
+B --> C
+C --> A</textarea>
+            <div class="actions">
+              <button data-run>Run</button>
+            </div>
+          </div>
+          <div class="diagram"></div>
+        </div>
+      </section>
+      </div>
+    </main>
+
+    <script type="module">
+      import animate from './src/lib/index.ts';
+      import { createFlowBasic } from './src/demos/flow-basic.ts';
+      import { createFlowInteractive } from './src/demos/flow-interactive.ts';
+      import { createFlowAdvanced } from './src/demos/flow-advanced.ts';
+      import { createFlowSplit } from './src/demos/flow-split.ts';
+      import { createFlowHeatmap } from './src/demos/flow-heatmap.ts';
+      import { createSequence } from './src/demos/sequence.ts';
+      import { createState } from './src/demos/state.ts';
+      import { createPlayground } from './src/demos/playground.ts';
+
+      animate.initialize({ theme: 'light', animate: { autoplay: { whenVisible: true, startDelay: 800, replayDelay: 1500 } } });
+
+      createFlowBasic(document.querySelector('#demo-flow-basic'));
+      createFlowInteractive(document.querySelector('#demo-flow-interactive'));
+      createFlowAdvanced(document.querySelector('#demo-flow-advanced'));
+      createFlowSplit(document.querySelector('#demo-flow-split'));
+      createFlowHeatmap(document.querySelector('#demo-flow-heatmap'));
+      createSequence(document.querySelector('#demo-sequence'));
+      createState(document.querySelector('#demo-state'));
+      createPlayground(document.querySelector('#playground'));
+
+      document.querySelector('#theme-light')?.addEventListener('click', () => animate.setTheme('light'));
+      document.querySelector('#theme-dark')?.addEventListener('click', () => animate.setTheme('dark'));
+
+      // Load in playground buttons
+      document.querySelectorAll('.to-playground').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const targetSel = btn.getAttribute('data-target');
+          const target = targetSel ? document.querySelector(targetSel) : btn.closest('[data-demo]');
+          const script = target?.querySelector('script[type="text/mermaid"], script[type="text/x-mermaid"]');
+          const code = script?.textContent || '';
+          const ta = document.querySelector('#playground textarea[data-playground]');
+          if (ta) ta.value = code;
+          document.querySelector('#playground button[data-run]')?.dispatchEvent(new Event('click'));
+          document.querySelector('#playground')?.scrollIntoView({ behavior: 'smooth' });
+        });
+      });
+    </script>
+    <script src="https://unpkg.com/prismjs/prism.js"></script>
+  </body>
+  </html>

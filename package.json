@@ -1,0 +1,50 @@
+{
+  "name": "mermaid-animate",
+  "version": "0.1.0",
+  "description": "Mermaid animations that feel first-party: flowcharts and sequence diagrams with native-feeling defaults.",
+  "type": "module",
+  "main": "dist/mermaid-animate.es.js",
+  "module": "dist/mermaid-animate.es.js",
+  "exports": {
+    ".": {
+      "import": "./dist/mermaid-animate.es.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:lib": "vite build --config vite.config.ts",
+    "build:demo": "vite build --config vite.demo.config.ts",
+    "preview": "vite preview"
+  },
+  "keywords": [
+    "mermaid",
+    "animation",
+    "gsap",
+    "flowchart",
+    "sequence"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jameshealyio/mermaid-animate.git"
+  },
+  "homepage": "https://jameshealyio.github.io/mermaid-animate/",
+  "bugs": {
+    "url": "https://github.com/jameshealyio/mermaid-animate/issues"
+  },
+  "peerDependencies": {
+    "mermaid": "^11.0.0",
+    "gsap": "^3.12.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "vite": "^5.3.0",
+    "vite-plugin-dts": "^4.2.0"
+  }
+}
